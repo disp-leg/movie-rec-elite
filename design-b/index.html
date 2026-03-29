@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>VOID — Immersive 3D Gallery</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e8e8e8;font-family:'Space Grotesk',sans-serif}
+#intro-screen{position:fixed;inset:0;z-index:1000;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+#intro-screen .brand{opacity:0;text-align:center}
+#intro-screen .brand h1{font-family:'Syne',sans-serif;font-size:clamp(3rem,12vw,6rem);font-weight:800;letter-spacing:0.15em;background:linear-gradient(135deg,#fff 0%,#6a5acd 50%,#ff6b9d 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+#intro-screen .brand .tagline{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.5em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-top:0.5rem}
+canvas#main-canvas{display:block;width:100%;height:100%;position:fixed;inset:0}
+#ui-layer{position:fixed;inset:0;z-index:10;pointer-events:none}
+#tabs-bar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;gap:0;overflow-x:auto;scrollbar-width:none;padding:1rem 0.5rem 1.2rem;background:linear-gradient(180deg,rgba(0,0,0,0.85) 0%,transparent 100%);pointer-events:auto;-webkit-overflow-scrolling:touch}
+#tabs-bar::-webkit-scrollbar{display:none}
+.tab-btn{flex:0 0 auto;padding:0.45rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.08);border-radius:100px;cursor:pointer;white-space:nowrap;transition:all 0.4s;background:transparent}
+.tab-btn.active{color:#ff6b9d;border-color:rgba(255,107,157,0.4);background:rgba(255,107,157,0.06);box-shadow:0 0 20px rgba(255,107,157,0.1)}
+#detail-panel{position:fixed;bottom:0;left:0;right:0;z-index:30;background:linear-gradient(0deg,rgba(0,0,0,0.95) 0%,rgba(0,0,0,0.8) 70%,transparent 100%);padding:2rem 1.5rem 2.5rem;transform:translateY(100%);transition:transform 0.5s cubic-bezier(0.16,1,0.3,1);pointer-events:auto}
+#detail-panel.open{transform:translateY(0)}
+#detail-panel .dp-label{font-family:'JetBrains Mono',monospace;font-size:0.55rem;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,107,157,0.7);margin-bottom:0.3rem}
+#detail-panel h2{font-family:'Syne',sans-serif;font-size:clamp(1.4rem,5vw,2rem);font-weight:700;margin-bottom:0.4rem}
+#detail-panel .dp-why{font-size:0.8rem;line-height:1.6;color:rgba(255,255,255,0.6);margin-bottom:0.8rem;font-weight:300}
+#detail-panel .dp-rating{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:#6a5acd;margin-bottom:0.6rem}
+.stream-row{display:flex;flex-wrap:wrap;gap:0.4rem}
+.stream-pill{padding:0.3rem 0.7rem;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;text-decoration:none;color:#fff;transition:all 0.2s;box-shadow:0 0 8px rgba(0,0,0,0.5)}
+.stream-pill:hover{transform:scale(1.05)}
+.sp-netflix{background:#e50914;box-shadow:0 0 12px rgba(229,9,20,0.4)}
+.sp-shudder{background:#8b0000;box-shadow:0 0 12px rgba(139,0,0,0.4)}
+.sp-tubi{background:#fa5c1f;box-shadow:0 0 12px rgba(250,92,31,0.4)}
+.sp-amazon{background:#00a8e1;box-shadow:0 0 12px rgba(0,168,225,0.4)}
+.sp-pluto{background:#2e7d32;box-shadow:0 0 12px rgba(46,125,50,0.4)}
+.sp-dopebox{background:#7b1fa2;box-shadow:0 0 12px rgba(123,31,162,0.4)}
+#detail-close{position:absolute;top:1rem;right:1rem;background:none;border:1px solid rgba(255,255,255,0.15);color:#fff;font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:0.3rem 0.8rem;cursor:pointer;border-radius:100px;letter-spacing:0.08em}
+#shuffle-fab{position:fixed;bottom:1.5rem;right:1.5rem;z-index:25;width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;pointer-events:auto;background:linear-gradient(135deg,#6a5acd,#ff6b9d);box-shadow:0 4px 25px rgba(106,90,205,0.4);display:flex;align-items:center;justify-content:center;transition:transform 0.3s}
+#shuffle-fab:hover{transform:scale(1.1)}
+#shuffle-fab svg{width:22px;height:22px;fill:#fff}
+#shuffle-mode{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,0.97);display:none;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto}
+#shuffle-mode .shake-hint{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;color:rgba(255,255,255,0.25);margin-bottom:2rem;text-transform:uppercase}
+#shuffle-mode .result-area{text-align:center;max-width:340px;opacity:0;transition:opacity 0.6s}
+#shuffle-mode .result-area h3{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:700;margin-bottom:0.3rem}
+#shuffle-mode .result-area .ra-sub{font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:#ff6b9d;letter-spacing:0.2em;margin-bottom:0.5rem}
+#shuffle-mode .result-area .ra-why{font-size:0.8rem;color:rgba(255,255,255,0.5);line-height:1.5;margin-bottom:0.8rem}
+#shuffle-exit{position:absolute;top:1.5rem;right:1.5rem;background:none;border:1px solid rgba(255,255,255,0.2);color:#fff;font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:0.4rem 1rem;cursor:pointer;border-radius:100px;letter-spacing:0.1em}
+#shuffle-canvas{width:100%;height:350px}
+</style>
+</head>
+<body>
+<div id="intro-screen">
+<div class="brand">
+<h1>VOID</h1>
+<div class="tagline">Immersive Cinema Discovery</div>
+</div>
+</div>
+<canvas id="main-canvas"></canvas>
+<div id="ui-layer">
+<div id="tabs-bar"></div>
+</div>
+<div id="detail-panel">
+<button id="detail-close">CLOSE</button>
+<div id="dp-content"></div>
+</div>
+<button id="shuffle-fab"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
+<div id="shuffle-mode">
+<button id="shuffle-exit">ESC</button>
+<div class="shake-hint">TAP RAPIDLY TO DISTURB &bull; GRAVITY DOES THE REST</div>
+<canvas id="shuffle-canvas"></canvas>
+<div class="result-area" id="shuffle-result-b"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script>
+const MOVIES=[
+  {id:1,title:"Right at Your Door",year:2006,director:"Chris Gorak",tier:"t1",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/sBkCtdpkWRiisQ3vzyNOZ72biCB.jpg",why:"Dirty bomb hits LA; husband seals himself inside while wife is outside. Claustrophobic domestic apocalypse.",streaming:{svod:[],avod:["Tubi","Pluto TV"]}},
+  {id:2,title:"Hidden",year:2015,director:"Matt & Ross Duffer",tier:"t1",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/mPuaHaczkoJDzlYD9GyXiDjMXig.jpg",why:"Family in a bunker after an outbreak. Pre-Stranger Things Duffer Brothers.",streaming:{svod:["Netflix","Amazon Prime"],avod:[]}},
+  {id:3,title:"Carriers",year:2009,director:"Àlex & David Pastor",tier:"t1",rating:2.8,poster:"https://image.tmdb.org/t/p/w500/jxjnjHtHXgvjdhkwpelE9ZwVMg6.jpg",why:"Four survivors navigate a pandemic wasteland. Moral decay under survival pressure.",streaming:{svod:["Amazon Prime"],avod:["Tubi"]}},
+  {id:4,title:"It Comes at Night",year:2017,director:"Trey Edward Shults",tier:"t1",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/rNKJpFMlOZn5zkzBPZxEJrQn5Km.jpg",why:"Family boarded up during a plague. Trust erodes into paranoia and violence.",streaming:{svod:["Netflix","Amazon Prime"],avod:[]}},
+  {id:5,title:"Await Further Instructions",year:2018,director:"Johnny Kevorkian",tier:"t1",rating:2.5,poster:"https://image.tmdb.org/t/p/w500/afvi5tVi5S3Ux9faZaI32SmPRkj.jpg",why:"Family trapped by a mysterious barricade. TV gives sinister instructions.",streaming:{svod:["Netflix","Shudder"],avod:[]}},
+  {id:6,title:"Coherence",year:2013,director:"James Ward Byrkit",tier:"t2",rating:3.7,poster:"https://image.tmdb.org/t/p/w500/ezUtb9m5DeLwL2gxi4gktzNCvQv.jpg",why:"Dinner party goes wrong when a comet passes. Reality fractures in a confined space.",streaming:{svod:["Amazon Prime"],avod:["Tubi"]}},
+  {id:7,title:"Pontypool",year:2008,director:"Bruce McDonald",tier:"t2",rating:3.3,poster:"https://image.tmdb.org/t/p/w500/uh4n9FSYYaeOWchP8gBPNtg7kD7.jpg",why:"Radio DJ trapped as a virus spreads through language. Cerebral claustrophobia.",streaming:{svod:["Shudder"],avod:["Tubi"]}},
+  {id:8,title:"The Platform",year:2019,director:"Galder Gaztelu-Urrutia",tier:"t2",rating:3.4,poster:"https://image.tmdb.org/t/p/w500/iXvQnzy6JCAx1PiQEKXuTY04ZHl.jpg",why:"Vertical prison where food descends level by level. Brutal social allegory.",streaming:{svod:["Netflix"],avod:[]}},
+  {id:9,title:"Exam",year:2009,director:"Stuart Hazeldine",tier:"t2",rating:3.3,poster:"https://image.tmdb.org/t/p/w500/i1J2zBCyOQJKsQipqJ0qXERC1Ma.jpg",why:"Eight candidates in a single room. Confined-space tension distilled to its essence.",streaming:{svod:[],avod:["Tubi","Amazon Prime"]}},
+  {id:10,title:"The Bar",year:2017,director:"Álex de la Iglesia",tier:"t2",rating:3.0,poster:"https://image.tmdb.org/t/p/w500/vYyALnKnzHLv4PoU2b447GYT8R9.jpg",why:"Patrons trapped after a sniper kills anyone who exits. Paranoia mounts.",streaming:{svod:["Netflix","Amazon Prime"],avod:[]}},
+  {id:11,title:"Circle",year:2015,director:"Aaron Hann & Mario Miscione",tier:"t3",rating:2.9,poster:"https://image.tmdb.org/t/p/w500/hbIL53MdZFJXsgxXaSOVuApWTs8.jpg",why:"50 strangers. Every 2 minutes, one dies by group vote. Pure survival psychology.",streaming:{svod:["Netflix"],avod:["Tubi"]}},
+  {id:12,title:"Would You Rather",year:2012,director:"David Guy Levy",tier:"t3",rating:2.8,poster:"https://image.tmdb.org/t/p/w500/tos5MpjaOsAFVGjjieQlZsHlbd.jpg",why:"Guests forced into brutal choices. Escalating violence and moral compromise.",streaming:{svod:[],avod:["Tubi","Amazon Prime"]}},
+  {id:13,title:"Fermat's Room",year:2007,director:"Piedrahita & Sopeña",tier:"t3",rating:3.2,poster:"https://image.tmdb.org/t/p/w500/qQcYvPXxvk6bQDV9Zgd6cnDQmKZ.jpg",why:"Mathematicians locked in a shrinking room. Literal claustrophobia as survival.",streaming:{svod:[],avod:["Amazon Prime","Tubi"]}},
+  {id:14,title:"Level 16",year:2018,director:"Danishka Esterhazy",tier:"t3",rating:3.0,poster:"https://image.tmdb.org/t/p/w500/glVIjhLmzmgtppLWb3lvnoPljGW.jpg",why:"Girls discover the horrifying purpose of their boarding school captivity.",streaming:{svod:["Shudder"],avod:["Tubi"]}},
+  {id:15,title:"The Incident",year:2014,director:"Isaac Ezban",tier:"t3",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/idb1ACZCQAsYJCFMfs9vgyBIbP1.jpg",why:"Trapped in infinite loops. Existential claustrophobia. Mexican indie gem.",streaming:{svod:[],avod:["Amazon Prime","Tubi"]}},
+  {id:16,title:"Pandorum",year:2009,director:"Christian Alvart",tier:"t4",rating:3.2,poster:"https://image.tmdb.org/t/p/w500/mNMfa6r3pl0EzFIKEkVcxyr6Rc7.jpg",why:"Crew wakes on a spaceship with no memory. The Divide in space.",streaming:{svod:["Amazon Prime"],avod:["Tubi"]}},
+  {id:17,title:"The Void",year:2016,director:"Gillespie & Kostanski",tier:"t4",rating:3.0,poster:"https://image.tmdb.org/t/p/w500/2WhZAPi3vomEQdzAPIYTvmvWaxI.jpg",why:"Trapped in a hospital surrounded by cultists. Cosmic horror. Carpenter-esque.",streaming:{svod:["Shudder"],avod:["Tubi"]}},
+  {id:18,title:"Breathing Room",year:2008,director:"Suits & Cowan",tier:"t4",rating:2.4,poster:"https://image.tmdb.org/t/p/w500/aaz4rgsEjApkUz87OrFT6sNZDks.jpg",why:"Strangers in a locked room wearing explosive collars. Figure out the rules or die.",streaming:{svod:[],avod:["Tubi"]}},
+  {id:19,title:"The Hole",year:2001,director:"Nick Hamm",tier:"t4",rating:2.9,poster:"https://image.tmdb.org/t/p/w500/n5aMoI6AZLJzUoNbjMj0P60EYMJ.jpg",why:"Teens lock themselves in a WWII bunker. Things go wrong. Early Keira Knightley.",streaming:{svod:["Amazon Prime"],avod:[]}},
+  {id:20,title:"The Bunker",year:2024,director:"Adrian Langley",tier:"t4",rating:2.6,poster:"https://image.tmdb.org/t/p/w500/jOA7chFPVzSyPp2DaRg8hqA1BHr.jpg",why:"Survivors in a bunker after nuclear event. The most direct spiritual successor to The Divide.",streaming:{svod:[],avod:["Tubi","Amazon Prime"]}}
+];
+const TIERS=[{key:"t1",label:"Direct Matches"},{key:"t2",label:"Claustrophobic"},{key:"t3",label:"Survival Pressure"},{key:"t4",label:"Adjacent Deep Cuts"}];
+
+function getStreamUrl(p,title){
+  const t=encodeURIComponent(title),h=title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-$/,'');
+  return{Netflix:`https://www.netflix.com/search?q=${t}`,'Amazon Prime':`https://www.amazon.com/s?k=${t}&i=instant-video`,Shudder:`https://www.shudder.com/search?q=${t}`,Tubi:`https://tubitv.com/search/${t}`,'Pluto TV':`https://pluto.tv/search/details/${t}`,Dopebox:`https://dopebox.to/search/${h}`}[p]||'#';
+}
+function pillClass(p){return{'Netflix':'sp-netflix','Shudder':'sp-shudder','Tubi':'sp-tubi','Amazon Prime':'sp-amazon','Pluto TV':'sp-pluto','Dopebox':'sp-dopebox'}[p]||'';}
+
+// ── Three.js Gallery ──
+let scene,camera,renderer,raycaster,mouse;
+let tileMeshes=[],currentTier='t1',selectedTile=null;
+let cameraTargetX=0,cameraX=0;
+let isDragging=false,dragStartX=0,dragVelX=0,lastDragX=0;
+const tileSpacing=2.8;
+const textureLoader=new THREE.TextureLoader();
+
+function initGallery(){
+  scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x000000,0.08);
+  camera=new THREE.PerspectiveCamera(50,window.innerWidth/window.innerHeight,0.1,100);
+  camera.position.set(0,0,6);
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('main-canvas'),antialias:true});
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=0.8;
+
+  // Ambient
+  scene.add(new THREE.AmbientLight(0x222244,0.4));
+  // Key light — purple tint
+  const keyLight=new THREE.SpotLight(0x6a5acd,2,30,Math.PI/4,0.5);
+  keyLight.position.set(5,8,10);keyLight.castShadow=true;
+  keyLight.shadow.mapSize.set(1024,1024);
+  scene.add(keyLight);
+  // Rim light — pink
+  const rimLight=new THREE.PointLight(0xff6b9d,1,20);
+  rimLight.position.set(-8,3,2);
+  scene.add(rimLight);
+  // Bottom fill
+  const fillLight=new THREE.PointLight(0x1a1a4e,0.8,15);
+  fillLight.position.set(0,-3,5);
+  scene.add(fillLight);
+
+  // Floor plane (reflections hint)
+  const floorGeo=new THREE.PlaneGeometry(100,100);
+  const floorMat=new THREE.MeshStandardMaterial({color:0x050510,roughness:0.3,metalness:0.8});
+  const floor=new THREE.Mesh(floorGeo,floorMat);
+  floor.rotation.x=-Math.PI/2;floor.position.y=-2.5;floor.receiveShadow=true;
+  scene.add(floor);
+
+  // Particle dust
+  const particleGeo=new THREE.BufferGeometry();
+  const pCount=200;
+  const pPos=new Float32Array(pCount*3);
+  for(let i=0;i<pCount;i++){pPos[i*3]=(Math.random()-0.5)*30;pPos[i*3+1]=(Math.random()-0.5)*10;pPos[i*3+2]=(Math.random()-0.5)*20;}
+  particleGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+  const particleMat=new THREE.PointsMaterial({color:0x6a5acd,size:0.03,transparent:true,opacity:0.5});
+  scene.add(new THREE.Points(particleGeo,particleMat));
+
+  raycaster=new THREE.Raycaster();
+  mouse=new THREE.Vector2();
+
+  buildTiles('t1');
+  buildTabs();
+  setupInteractions();
+  animate();
+}
+
+function buildTiles(tier){
+  // Remove old tiles
+  tileMeshes.forEach(t=>scene.remove(t));
+  tileMeshes=[];
+  const movies=MOVIES.filter(m=>m.tier===tier);
+  movies.forEach((movie,i)=>{
+    const geo=new THREE.BoxGeometry(1.8,2.6,0.1);
+    const tex=textureLoader.load(movie.poster);
+    tex.minFilter=THREE.LinearFilter;
+    const frontMat=new THREE.MeshStandardMaterial({map:tex,roughness:0.3,metalness:0.05});
+    const sideMat=new THREE.MeshStandardMaterial({color:0x0a0a1a,roughness:0.8,metalness:0.2});
+    const backMat=new THREE.MeshStandardMaterial({color:0x080818,roughness:0.9});
+    const mats=[sideMat,sideMat,sideMat,sideMat,frontMat,backMat];
+    const mesh=new THREE.Mesh(geo,mats);
+    mesh.position.set(i*tileSpacing,Math.sin(i*0.7)*0.3,(Math.random()-0.5)*0.5);
+    mesh.castShadow=true;mesh.receiveShadow=true;
+    mesh.userData={movie,baseY:mesh.position.y,baseZ:mesh.position.z,index:i};
+    scene.add(mesh);
+    tileMeshes.push(mesh);
+    // Entrance animation
+    mesh.scale.set(0,0,0);
+    gsap.to(mesh.scale,{x:1,y:1,z:1,duration:0.6,delay:i*0.1,ease:'back.out(1.7)'});
+  });
+  cameraTargetX=0;cameraX=0;
+}
+
+function buildTabs(){
+  const bar=document.getElementById('tabs-bar');
+  TIERS.forEach(t=>{
+    const btn=document.createElement('div');
+    btn.className='tab-btn'+(t.key===currentTier?' active':'');
+    btn.textContent=t.label;
+    btn.addEventListener('click',()=>{
+      if(t.key===currentTier)return;
+      currentTier=t.key;
+      document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',TIERS[i].key===currentTier));
+      // Exit tiles
+      tileMeshes.forEach((m,i)=>{
+        gsap.to(m.scale,{x:0,y:0,z:0,duration:0.3,delay:i*0.05,ease:'power2.in',onComplete:()=>{if(i===tileMeshes.length-1)buildTiles(currentTier)}});
+      });
+      closeDetail();
+    });
+    bar.appendChild(btn);
+  });
+}
+
+function setupInteractions(){
+  const canvas=renderer.domElement;
+  canvas.addEventListener('pointerdown',e=>{isDragging=true;dragStartX=e.clientX;lastDragX=e.clientX;dragVelX=0});
+  window.addEventListener('pointermove',e=>{
+    mouse.x=(e.clientX/window.innerWidth)*2-1;
+    mouse.y=-(e.clientY/window.innerHeight)*2+1;
+    if(isDragging){
+      const dx=e.clientX-lastDragX;
+      dragVelX=dx;
+      cameraTargetX-=dx*0.012;
+      lastDragX=e.clientX;
+    }
+  });
+  window.addEventListener('pointerup',e=>{
+    if(isDragging&&Math.abs(e.clientX-dragStartX)<5){
+      // Click — check raycast
+      raycaster.setFromCamera(mouse,camera);
+      const hits=raycaster.intersectObjects(tileMeshes);
+      if(hits.length>0)showDetail(hits[0].object.userData.movie);
+    }
+    isDragging=false;
+  });
+  document.getElementById('detail-close').addEventListener('click',closeDetail);
+  window.addEventListener('resize',()=>{
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+  });
+}
+
+function showDetail(movie){
+  const panel=document.getElementById('detail-panel');
+  const content=document.getElementById('dp-content');
+  while(content.firstChild)content.removeChild(content.firstChild);
+
+  const label=document.createElement('div');label.className='dp-label';
+  label.textContent=`${movie.year} \u2014 ${movie.director}`;content.appendChild(label);
+
+  const h2=document.createElement('h2');h2.textContent=movie.title;content.appendChild(h2);
+
+  const why=document.createElement('div');why.className='dp-why';why.textContent=movie.why;content.appendChild(why);
+
+  const rat=document.createElement('div');rat.className='dp-rating';
+  rat.textContent='\u2605'.repeat(Math.round(movie.rating))+'\u2606'.repeat(5-Math.round(movie.rating))+` ${movie.rating}/5`;
+  content.appendChild(rat);
+
+  const pills=document.createElement('div');pills.className='stream-row';
+  [...movie.streaming.svod,...movie.streaming.avod,'Dopebox'].forEach(p=>{
+    const a=document.createElement('a');
+    a.className=`stream-pill ${pillClass(p)}`;
+    a.href=getStreamUrl(p,movie.title);a.target='_blank';a.rel='noopener';
+    a.textContent=p;pills.appendChild(a);
+  });
+  content.appendChild(pills);
+  panel.classList.add('open');
+}
+
+function closeDetail(){document.getElementById('detail-panel').classList.remove('open')}
+
+function animate(){
+  requestAnimationFrame(animate);
+  // Camera momentum
+  if(!isDragging){dragVelX*=0.92;cameraTargetX-=dragVelX*0.003}
+  // Clamp camera
+  const maxX=(tileMeshes.length-1)*tileSpacing;
+  cameraTargetX=Math.max(-1,Math.min(cameraTargetX,maxX+1));
+  cameraX+=(cameraTargetX-cameraX)*0.08;
+  camera.position.x=cameraX;
+
+  // Tile hover effects
+  tileMeshes.forEach(mesh=>{
+    const d=mesh.userData;
+    // Float
+    mesh.position.y=d.baseY+Math.sin(Date.now()*0.001+d.index)*0.08;
+    // Tilt toward mouse
+    if(!isDragging){
+      const dx=(mouse.x*5-mesh.position.x+cameraX)*0.05;
+      const dy=(mouse.y*3-mesh.position.y)*0.05;
+      mesh.rotation.y+=(dx-mesh.rotation.y)*0.05;
+      mesh.rotation.x+=(-dy-mesh.rotation.x)*0.05;
+    }
+  });
+
+  renderer.render(scene,camera);
+}
+
+// ── Intro ──
+(function(){
+  const tl=gsap.timeline();
+  tl.to('#intro-screen .brand',{opacity:1,duration:1,delay:0.3,ease:'power2.out'})
+    .to('#intro-screen .brand h1',{letterSpacing:'0.25em',duration:1.5,ease:'power2.out'},'-=0.5')
+    .to('#intro-screen',{opacity:0,duration:0.6,delay:1,ease:'power2.inOut',onComplete:()=>{
+      document.getElementById('intro-screen').style.display='none';
+      initGallery();
+    }});
+})();
+
+// ── Gravity Well Shuffle ──
+const shuffleFab=document.getElementById('shuffle-fab');
+const shuffleMode=document.getElementById('shuffle-mode');
+const shuffleExit=document.getElementById('shuffle-exit');
+const shuffleCanvasEl=document.getElementById('shuffle-canvas');
+let shuffleActive=false,shuffleParticles=[],shuffleSettled=false;
+
+shuffleFab.addEventListener('click',()=>{
+  shuffleMode.style.display='flex';shuffleActive=true;shuffleSettled=false;
+  document.getElementById('shuffle-result-b').style.opacity='0';
+  initShuffleParticles();drawShuffle();
+});
+shuffleExit.addEventListener('click',()=>{shuffleMode.style.display='none';shuffleActive=false});
+
+// Tap to disturb
+shuffleCanvasEl.addEventListener('pointerdown',()=>{
+  if(shuffleSettled){shuffleSettled=false;document.getElementById('shuffle-result-b').style.opacity='0';}
+  shuffleParticles.forEach(p=>{
+    p.vx+=(Math.random()-0.5)*12;
+    p.vy+=(Math.random()-0.5)*12;
+  });
+});
+
+function initShuffleParticles(){
+  shuffleParticles=MOVIES.map((m,i)=>{
+    const angle=Math.random()*Math.PI*2;
+    const dist=Math.random()*80+20;
+    return{movie:m,x:200+Math.cos(angle)*dist,y:175+Math.sin(angle)*dist,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,size:36,settled:false};
+  });
+}
+
+function drawShuffle(){
+  if(!shuffleActive)return;
+  const c=shuffleCanvasEl;
+  const dpr=Math.min(window.devicePixelRatio,2);
+  const rect=c.getBoundingClientRect();
+  c.width=rect.width*dpr;c.height=rect.height*dpr;
+  const ctx=c.getContext('2d');
+  ctx.scale(dpr,dpr);
+  const cw=rect.width,ch=rect.height;
+  const cx=cw/2,cy=ch/2;
+
+  ctx.clearRect(0,0,cw,ch);
+
+  // Gravity toward center
+  let allSlow=true;
+  shuffleParticles.forEach(p=>{
+    const dx=cx-p.x,dy=cy-p.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    // Gravity pull
+    const grav=0.15;
+    p.vx+=dx/dist*grav;
+    p.vy+=dy/dist*grav;
+    // Damping
+    p.vx*=0.97;p.vy*=0.97;
+    p.x+=p.vx;p.y+=p.vy;
+    // Bounce off walls
+    if(p.x<p.size){p.x=p.size;p.vx*=-0.6}
+    if(p.x>cw-p.size){p.x=cw-p.size;p.vx*=-0.6}
+    if(p.y<p.size){p.y=p.size;p.vy*=-0.6}
+    if(p.y>ch-p.size){p.y=ch-p.size;p.vy*=-0.6}
+    // Collision with others
+    shuffleParticles.forEach(q=>{
+      if(q===p)return;
+      const ddx=q.x-p.x,ddy=q.y-p.y;
+      const d=Math.sqrt(ddx*ddx+ddy*ddy);
+      if(d<p.size+q.size*0.5&&d>0){
+        const nx=ddx/d,ny=ddy/d;
+        const overlap=(p.size+q.size*0.5-d)/2;
+        p.x-=nx*overlap;p.y-=ny*overlap;
+        q.x+=nx*overlap;q.y+=ny*overlap;
+        const dvx=p.vx-q.vx,dvy=p.vy-q.vy;
+        const imp=dvx*nx+dvy*ny;
+        p.vx-=imp*nx*0.5;p.vy-=imp*ny*0.5;
+        q.vx+=imp*nx*0.5;q.vy+=imp*ny*0.5;
+      }
+    });
+    if(Math.abs(p.vx)>0.5||Math.abs(p.vy)>0.5)allSlow=false;
+  });
+
+  // Draw particles as mini poster squares
+  shuffleParticles.forEach(p=>{
+    ctx.save();
+    ctx.fillStyle='#1a1a2e';
+    ctx.fillRect(p.x-p.size/2,p.y-p.size*0.7,p.size,p.size*1.4);
+    ctx.fillStyle='#aaa';
+    ctx.font='8px "JetBrains Mono"';
+    ctx.textAlign='center';
+    ctx.fillText(p.movie.title.substring(0,12),p.x,p.y+2);
+    ctx.restore();
+  });
+
+  // Center indicator
+  ctx.strokeStyle='rgba(106,90,205,0.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx,cy,40,0,Math.PI*2);ctx.stroke();
+
+  // Check if settled
+  if(allSlow&&!shuffleSettled){
+    shuffleSettled=true;
+    // Find closest to center
+    let closest=shuffleParticles[0],minD=Infinity;
+    shuffleParticles.forEach(p=>{
+      const d=Math.sqrt((p.x-cx)**2+(p.y-cy)**2);
+      if(d<minD){minD=d;closest=p}
+    });
+    showShuffleResultB(closest.movie);
+  }
+
+  requestAnimationFrame(drawShuffle);
+}
+
+function showShuffleResultB(movie){
+  const r=document.getElementById('shuffle-result-b');
+  while(r.firstChild)r.removeChild(r.firstChild);
+  const h3=document.createElement('h3');h3.textContent=movie.title;r.appendChild(h3);
+  const sub=document.createElement('div');sub.className='ra-sub';sub.textContent=`${movie.year} \u2014 ${movie.director}`;r.appendChild(sub);
+  const why=document.createElement('div');why.className='ra-why';why.textContent=movie.why;r.appendChild(why);
+  const pills=document.createElement('div');pills.className='stream-row';pills.style.justifyContent='center';
+  [...movie.streaming.svod,...movie.streaming.avod,'Dopebox'].forEach(p=>{
+    const a=document.createElement('a');a.className=`stream-pill ${pillClass(p)}`;
+    a.href=getStreamUrl(p,movie.title);a.target='_blank';a.rel='noopener';
+    a.textContent=p;pills.appendChild(a);
+  });
+  r.appendChild(pills);
+  gsap.to(r,{opacity:1,duration:0.6,delay:0.3});
+}
+</script>
+</body>
+</html>

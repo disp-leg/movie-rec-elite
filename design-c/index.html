@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>THE BUNKER — Deep Cut Cinema</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Code+Pro:wght@300;400;500;600&family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#d4c9a8;font-family:'Source Code Pro',monospace}
+canvas#bunker-canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
+#intro-overlay{position:fixed;inset:0;z-index:1000;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+#intro-overlay .gen-text{font-family:'Source Code Pro',monospace;font-size:0.6rem;letter-spacing:0.3em;color:rgba(212,201,168,0.4);opacity:0;text-transform:uppercase}
+#intro-overlay .title-card{opacity:0;text-align:center;margin-top:1rem}
+#intro-overlay .title-card h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,14vw,7rem);color:#d4c9a8;letter-spacing:0.08em;line-height:0.9}
+#intro-overlay .title-card .sub{font-family:'Source Code Pro',monospace;font-size:0.55rem;letter-spacing:0.5em;color:rgba(212,201,168,0.3);margin-top:0.6rem}
+#hud{position:fixed;inset:0;z-index:10;pointer-events:none}
+#wall-nav{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:0.3rem;pointer-events:auto}
+.wall-btn{padding:0.4rem 0.8rem;font-family:'Source Code Pro',monospace;font-size:0.55rem;letter-spacing:0.1em;text-transform:uppercase;color:rgba(212,201,168,0.35);border:1px solid rgba(212,201,168,0.12);background:rgba(0,0,0,0.6);cursor:pointer;transition:all 0.3s;white-space:nowrap}
+.wall-btn.active{color:#c9944a;border-color:rgba(201,148,74,0.4);background:rgba(201,148,74,0.08)}
+#slam-btn{position:fixed;bottom:4rem;left:50%;transform:translateX(-50%);z-index:20;pointer-events:auto;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:0.15em;color:#c9944a;background:none;border:2px solid rgba(201,148,74,0.4);padding:0.6rem 2rem;cursor:pointer;transition:all 0.3s;text-transform:uppercase}
+#slam-btn:hover{background:rgba(201,148,74,0.1);border-color:#c9944a}
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:15;width:20px;height:20px;pointer-events:none;opacity:0.15}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(212,201,168,0.5)}
+#crosshair::before{width:1px;height:100%;left:50%;top:0}
+#crosshair::after{width:100%;height:1px;top:50%;left:0}
+#movie-detail{position:fixed;top:0;left:0;right:0;bottom:0;z-index:30;background:rgba(0,0,0,0.92);display:none;align-items:center;justify-content:center;pointer-events:auto;flex-direction:column;padding:2rem}
+#movie-detail .md-inner{max-width:380px;text-align:center}
+#movie-detail .md-label{font-family:'Source Code Pro',monospace;font-size:0.55rem;letter-spacing:0.3em;color:rgba(201,148,74,0.7);margin-bottom:0.4rem;text-transform:uppercase}
+#movie-detail h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,7vw,3.5rem);letter-spacing:0.04em;margin-bottom:0.5rem;color:#d4c9a8}
+#movie-detail .md-why{font-size:0.8rem;line-height:1.7;color:rgba(212,201,168,0.6);margin-bottom:0.8rem;font-weight:300}
+#movie-detail .md-rating{font-family:'Source Code Pro',monospace;font-size:0.65rem;color:#c9944a;margin-bottom:0.8rem}
+.md-pills{display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin-bottom:1rem}
+.md-pill{padding:0.3rem 0.7rem;border-radius:2px;font-family:'Source Code Pro',monospace;font-size:0.55rem;text-decoration:none;color:#fff;transition:transform 0.2s}
+.md-pill:hover{transform:translateY(-2px)}
+.mp-netflix{background:#e50914}.mp-shudder{background:#8b0000}.mp-tubi{background:#fa5c1f}.mp-amazon{background:#00a8e1}.mp-pluto{background:#2e7d32}.mp-dopebox{background:#7b1fa2}
+#md-close{font-family:'Source Code Pro',monospace;font-size:0.65rem;letter-spacing:0.15em;color:rgba(212,201,168,0.4);background:none;border:1px solid rgba(212,201,168,0.2);padding:0.4rem 1.5rem;cursor:pointer;text-transform:uppercase;margin-top:0.5rem}
+#slam-overlay{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,0.95);display:none;align-items:center;justify-content:center;flex-direction:column;pointer-events:auto}
+#slam-canvas{width:100%;height:60vh}
+#slam-result{text-align:center;max-width:340px;opacity:0;transition:opacity 0.5s;margin-top:1rem}
+#slam-result h3{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.04em;color:#d4c9a8}
+#slam-result .sr-sub{font-family:'Source Code Pro',monospace;font-size:0.55rem;color:#c9944a;letter-spacing:0.2em;margin-bottom:0.5rem}
+#slam-result .sr-why{font-size:0.75rem;color:rgba(212,201,168,0.5);line-height:1.5;margin-bottom:0.6rem}
+#slam-hint{font-family:'Source Code Pro',monospace;font-size:0.55rem;letter-spacing:0.2em;color:rgba(212,201,168,0.2);text-transform:uppercase;margin-bottom:1rem}
+#slam-close{position:absolute;top:1rem;right:1rem;background:none;border:1px solid rgba(212,201,168,0.2);color:#d4c9a8;font-family:'Source Code Pro',monospace;font-size:0.6rem;padding:0.3rem 0.8rem;cursor:pointer;letter-spacing:0.1em}
+#slam-again{font-family:'Bebas Neue',sans-serif;font-size:0.9rem;letter-spacing:0.15em;color:#c9944a;background:none;border:1px solid rgba(201,148,74,0.3);padding:0.4rem 1.5rem;cursor:pointer;margin-top:0.8rem;display:none}
+</style>
+</head>
+<body>
+<div id="intro-overlay">
+<div class="gen-text">GENERATOR INITIALIZING...</div>
+<div class="title-card"><h1>THE BUNKER</h1><div class="sub">Deep Cut Cinema &bull; Shelter Protocol</div></div>
+</div>
+<canvas id="bunker-canvas"></canvas>
+<div id="hud"><div id="crosshair"></div></div>
+<div id="wall-nav"></div>
+<button id="slam-btn">SLAM TABLE</button>
+<div id="movie-detail"><div class="md-inner" id="md-inner"></div></div>
+<div id="slam-overlay">
+<button id="slam-close">ESC</button>
+<div id="slam-hint">TAP TO SLAM THE TABLE</div>
+<canvas id="slam-canvas"></canvas>
+<div id="slam-result"></div>
+<button id="slam-again">SLAM AGAIN</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script>
+const MOVIES=[
+  {id:1,title:"Right at Your Door",year:2006,director:"Chris Gorak",tier:"t1",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/sBkCtdpkWRiisQ3vzyNOZ72biCB.jpg",why:"Dirty bomb hits LA; husband seals himself inside while wife is outside. Claustrophobic domestic apocalypse.",streaming:{svod:[],avod:["Tubi","Pluto TV"]}},
+  {id:2,title:"Hidden",year:2015,director:"Matt & Ross Duffer",tier:"t1",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/mPuaHaczkoJDzlYD9GyXiDjMXig.jpg",why:"Family in a bunker after an outbreak. Pre-Stranger Things Duffer Brothers.",streaming:{svod:["Netflix","Amazon Prime"],avod:[]}},
+  {id:3,title:"Carriers",year:2009,director:"Àlex & David Pastor",tier:"t1",rating:2.8,poster:"https://image.tmdb.org/t/p/w500/jxjnjHtHXgvjdhkwpelE9ZwVMg6.jpg",why:"Four survivors navigate a pandemic wasteland. Moral decay under survival pressure.",streaming:{svod:["Amazon Prime"],avod:["Tubi"]}},
+  {id:4,title:"It Comes at Night",year:2017,director:"Trey Edward Shults",tier:"t1",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/rNKJpFMlOZn5zkzBPZxEJrQn5Km.jpg",why:"Family boarded up during a plague. Trust erodes into paranoia and violence.",streaming:{svod:["Netflix","Amazon Prime"],avod:[]}},
+  {id:5,title:"Await Further Instructions",year:2018,director:"Johnny Kevorkian",tier:"t1",rating:2.5,poster:"https://image.tmdb.org/t/p/w500/afvi5tVi5S3Ux9faZaI32SmPRkj.jpg",why:"Family trapped by a mysterious barricade. TV gives sinister instructions.",streaming:{svod:["Netflix","Shudder"],avod:[]}},
+  {id:6,title:"Coherence",year:2013,director:"James Ward Byrkit",tier:"t2",rating:3.7,poster:"https://image.tmdb.org/t/p/w500/ezUtb9m5DeLwL2gxi4gktzNCvQv.jpg",why:"Dinner party goes wrong when a comet passes. Reality fractures in a confined space.",streaming:{svod:["Amazon Prime"],avod:["Tubi"]}},
+  {id:7,title:"Pontypool",year:2008,director:"Bruce McDonald",tier:"t2",rating:3.3,poster:"https://image.tmdb.org/t/p/w500/uh4n9FSYYaeOWchP8gBPNtg7kD7.jpg",why:"Radio DJ trapped as a virus spreads through language. Cerebral claustrophobia.",streaming:{svod:["Shudder"],avod:["Tubi"]}},
+  {id:8,title:"The Platform",year:2019,director:"Galder Gaztelu-Urrutia",tier:"t2",rating:3.4,poster:"https://image.tmdb.org/t/p/w500/iXvQnzy6JCAx1PiQEKXuTY04ZHl.jpg",why:"Vertical prison where food descends level by level. Brutal social allegory.",streaming:{svod:["Netflix"],avod:[]}},
+  {id:9,title:"Exam",year:2009,director:"Stuart Hazeldine",tier:"t2",rating:3.3,poster:"https://image.tmdb.org/t/p/w500/i1J2zBCyOQJKsQipqJ0qXERC1Ma.jpg",why:"Eight candidates in a single room. Confined-space tension distilled.",streaming:{svod:[],avod:["Tubi","Amazon Prime"]}},
+  {id:10,title:"The Bar",year:2017,director:"Álex de la Iglesia",tier:"t2",rating:3.0,poster:"https://image.tmdb.org/t/p/w500/vYyALnKnzHLv4PoU2b447GYT8R9.jpg",why:"Patrons trapped after a sniper kills anyone who exits.",streaming:{svod:["Netflix","Amazon Prime"],avod:[]}},
+  {id:11,title:"Circle",year:2015,director:"Aaron Hann & Mario Miscione",tier:"t3",rating:2.9,poster:"https://image.tmdb.org/t/p/w500/hbIL53MdZFJXsgxXaSOVuApWTs8.jpg",why:"50 strangers. Every 2 minutes, one dies by group vote.",streaming:{svod:["Netflix"],avod:["Tubi"]}},
+  {id:12,title:"Would You Rather",year:2012,director:"David Guy Levy",tier:"t3",rating:2.8,poster:"https://image.tmdb.org/t/p/w500/tos5MpjaOsAFVGjjieQlZsHlbd.jpg",why:"Guests forced into brutal choices. Escalating violence and moral compromise.",streaming:{svod:[],avod:["Tubi","Amazon Prime"]}},
+  {id:13,title:"Fermat's Room",year:2007,director:"Piedrahita & Sopeña",tier:"t3",rating:3.2,poster:"https://image.tmdb.org/t/p/w500/qQcYvPXxvk6bQDV9Zgd6cnDQmKZ.jpg",why:"Mathematicians locked in a shrinking room. Literal claustrophobia as survival.",streaming:{svod:[],avod:["Amazon Prime","Tubi"]}},
+  {id:14,title:"Level 16",year:2018,director:"Danishka Esterhazy",tier:"t3",rating:3.0,poster:"https://image.tmdb.org/t/p/w500/glVIjhLmzmgtppLWb3lvnoPljGW.jpg",why:"Girls discover the horrifying purpose of their boarding school captivity.",streaming:{svod:["Shudder"],avod:["Tubi"]}},
+  {id:15,title:"The Incident",year:2014,director:"Isaac Ezban",tier:"t3",rating:3.1,poster:"https://image.tmdb.org/t/p/w500/idb1ACZCQAsYJCFMfs9vgyBIbP1.jpg",why:"Trapped in infinite loops. Existential claustrophobia. Mexican indie gem.",streaming:{svod:[],avod:["Amazon Prime","Tubi"]}},
+  {id:16,title:"Pandorum",year:2009,director:"Christian Alvart",tier:"t4",rating:3.2,poster:"https://image.tmdb.org/t/p/w500/mNMfa6r3pl0EzFIKEkVcxyr6Rc7.jpg",why:"Crew wakes on a spaceship with no memory. The Divide in space.",streaming:{svod:["Amazon Prime"],avod:["Tubi"]}},
+  {id:17,title:"The Void",year:2016,director:"Gillespie & Kostanski",tier:"t4",rating:3.0,poster:"https://image.tmdb.org/t/p/w500/2WhZAPi3vomEQdzAPIYTvmvWaxI.jpg",why:"Trapped in a hospital surrounded by cultists. Cosmic horror.",streaming:{svod:["Shudder"],avod:["Tubi"]}},
+  {id:18,title:"Breathing Room",year:2008,director:"Suits & Cowan",tier:"t4",rating:2.4,poster:"https://image.tmdb.org/t/p/w500/aaz4rgsEjApkUz87OrFT6sNZDks.jpg",why:"Strangers in a locked room wearing explosive collars.",streaming:{svod:[],avod:["Tubi"]}},
+  {id:19,title:"The Hole",year:2001,director:"Nick Hamm",tier:"t4",rating:2.9,poster:"https://image.tmdb.org/t/p/w500/n5aMoI6AZLJzUoNbjMj0P60EYMJ.jpg",why:"Teens lock themselves in a WWII bunker. Things go wrong.",streaming:{svod:["Amazon Prime"],avod:[]}},
+  {id:20,title:"The Bunker",year:2024,director:"Adrian Langley",tier:"t4",rating:2.6,poster:"https://image.tmdb.org/t/p/w500/jOA7chFPVzSyPp2DaRg8hqA1BHr.jpg",why:"Survivors in a bunker after nuclear event. Most direct spiritual successor to The Divide.",streaming:{svod:[],avod:["Tubi","Amazon Prime"]}}
+];
+const WALLS=[{key:"t1",label:"Direct Matches",angle:0},{key:"t2",label:"Claustrophobic",angle:Math.PI/2},{key:"t3",label:"Survival Pressure",angle:Math.PI},{key:"t4",label:"Adjacent Deep Cuts",angle:3*Math.PI/2}];
+
+function getStreamUrl(p,title){
+  const t=encodeURIComponent(title),h=title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-$/,'');
+  return{Netflix:`https://www.netflix.com/search?q=${t}`,'Amazon Prime':`https://www.amazon.com/s?k=${t}&i=instant-video`,Shudder:`https://www.shudder.com/search?q=${t}`,Tubi:`https://tubitv.com/search/${t}`,'Pluto TV':`https://pluto.tv/search/details/${t}`,Dopebox:`https://dopebox.to/search/${h}`}[p]||'#';
+}
+function pillClass(p){return{Netflix:'mp-netflix',Shudder:'mp-shudder',Tubi:'mp-tubi','Amazon Prime':'mp-amazon','Pluto TV':'mp-pluto',Dopebox:'mp-dopebox'}[p]||'';}
+
+let scene,camera,renderer,raycaster,mouse;
+let cameraAngle=0,cameraTargetAngle=0;
+let isDragging=false,dragStartX=0,lastDragX=0,dragVel=0;
+let posterMeshes=[];
+let bulbLight,bulbSwing=0,bulbVel=0.02;
+const textureLoader=new THREE.TextureLoader();
+const ROOM_SIZE=8;
+
+// ── Intro ──
+(function(){
+  const tl=gsap.timeline();
+  tl.to('#intro-overlay .gen-text',{opacity:1,duration:0.8,delay:0.3})
+    .to('#intro-overlay .gen-text',{opacity:0.1,duration:0.3,repeat:3,yoyo:true},'-=0.3')
+    .to('#intro-overlay .title-card',{opacity:1,duration:1,ease:'power2.out'})
+    .to('#intro-overlay',{opacity:0,duration:0.6,delay:1.2,onComplete:()=>{
+      document.getElementById('intro-overlay').style.display='none';
+      initBunker();
+    }});
+})();
+
+function initBunker(){
+  scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x0a0805,0.06);
+  scene.background=new THREE.Color(0x0a0805);
+
+  camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,50);
+  camera.position.set(0,0,0);
+
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('bunker-canvas'),antialias:true});
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=0.6;
+
+  // Ambient
+  scene.add(new THREE.AmbientLight(0x1a1008,0.3));
+
+  // Swinging bulb
+  bulbLight=new THREE.PointLight(0xffaa44,2.5,15);
+  bulbLight.position.set(0,3,0);
+  bulbLight.castShadow=true;
+  bulbLight.shadow.mapSize.set(512,512);
+  scene.add(bulbLight);
+
+  // Bulb mesh
+  const bulbGeo=new THREE.SphereGeometry(0.08,8,8);
+  const bulbMat=new THREE.MeshBasicMaterial({color:0xffcc66});
+  const bulbMesh=new THREE.Mesh(bulbGeo,bulbMat);
+  bulbLight.add(bulbMesh);
+
+  // Wire
+  const wireGeo=new THREE.CylinderGeometry(0.005,0.005,1);
+  const wireMat=new THREE.MeshBasicMaterial({color:0x333333});
+  const wire=new THREE.Mesh(wireGeo,wireMat);
+  wire.position.y=0.5;
+  bulbLight.add(wire);
+
+  // Room — four walls, floor, ceiling
+  const wallMat=new THREE.MeshStandardMaterial({color:0x2a2520,roughness:0.95,metalness:0.0});
+  const floorMat=new THREE.MeshStandardMaterial({color:0x1a1610,roughness:0.9,metalness:0.05});
+  const ceilMat=new THREE.MeshStandardMaterial({color:0x1e1a15,roughness:0.95});
+
+  const S=ROOM_SIZE;
+  // Floor
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(S*2,S*2),floorMat);
+  floor.rotation.x=-Math.PI/2;floor.position.y=-2;floor.receiveShadow=true;
+  scene.add(floor);
+  // Ceiling
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(S*2,S*2),ceilMat);
+  ceil.rotation.x=Math.PI/2;ceil.position.y=4;ceil.receiveShadow=true;
+  scene.add(ceil);
+
+  // Walls — positioned at each cardinal direction
+  const wallPositions=[
+    {pos:[0,1,-S],rot:[0,0,0]},        // North (t1)
+    {pos:[S,1,0],rot:[0,-Math.PI/2,0]}, // East (t2)
+    {pos:[0,1,S],rot:[0,Math.PI,0]},    // South (t3)
+    {pos:[-S,1,0],rot:[0,Math.PI/2,0]}  // West (t4)
+  ];
+  wallPositions.forEach(wp=>{
+    const wall=new THREE.Mesh(new THREE.PlaneGeometry(S*2,6),wallMat);
+    wall.position.set(...wp.pos);wall.rotation.set(...wp.rot);
+    wall.receiveShadow=true;
+    scene.add(wall);
+  });
+
+  // Table in center
+  const tableMat=new THREE.MeshStandardMaterial({color:0x3a3025,roughness:0.7,metalness:0.1});
+  const tableTop=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.08,1),tableMat);
+  tableTop.position.set(0,-0.8,0);tableTop.castShadow=true;tableTop.receiveShadow=true;
+  scene.add(tableTop);
+  // Table legs
+  const legGeo=new THREE.CylinderGeometry(0.03,0.03,1.2);
+  [[-0.65,-1.4,-0.4],[0.65,-1.4,-0.4],[-0.65,-1.4,0.4],[0.65,-1.4,0.4]].forEach(p=>{
+    const leg=new THREE.Mesh(legGeo,tableMat);
+    leg.position.set(...p);scene.add(leg);
+  });
+
+  // Dust particles
+  const dustGeo=new THREE.BufferGeometry();
+  const dustCount=300;
+  const dPos=new Float32Array(dustCount*3);
+  for(let i=0;i<dustCount;i++){
+    dPos[i*3]=(Math.random()-0.5)*S*2;
+    dPos[i*3+1]=Math.random()*5-2;
+    dPos[i*3+2]=(Math.random()-0.5)*S*2;
+  }
+  dustGeo.setAttribute('position',new THREE.BufferAttribute(dPos,3));
+  const dustMat=new THREE.PointsMaterial({color:0xaa9966,size:0.02,transparent:true,opacity:0.4});
+  scene.add(new THREE.Points(dustGeo,dustMat));
+
+  // Place posters on walls
+  WALLS.forEach((wall,wi)=>{
+    const movies=MOVIES.filter(m=>m.tier===wall.key);
+    movies.forEach((movie,mi)=>{
+      const tex=textureLoader.load(movie.poster);
+      tex.minFilter=THREE.LinearFilter;
+      const geo=new THREE.BoxGeometry(1.1,1.6,0.04);
+      const frontMat=new THREE.MeshStandardMaterial({map:tex,roughness:0.5});
+      const sideMat=new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:0.8});
+      const mats=[sideMat,sideMat,sideMat,sideMat,frontMat,sideMat];
+      const mesh=new THREE.Mesh(geo,mats);
+
+      // Position on wall
+      const offset=(mi-2)*1.5;
+      const angleJitter=(Math.random()-0.5)*0.08;
+      const yJitter=(Math.random()-0.5)*0.4;
+
+      if(wi===0){mesh.position.set(offset,0.5+yJitter,-(S-0.1));mesh.rotation.y=angleJitter}
+      else if(wi===1){mesh.position.set(S-0.1,0.5+yJitter,offset);mesh.rotation.y=-Math.PI/2+angleJitter}
+      else if(wi===2){mesh.position.set(-offset,0.5+yJitter,S-0.1);mesh.rotation.y=Math.PI+angleJitter}
+      else{mesh.position.set(-(S-0.1),0.5+yJitter,-offset);mesh.rotation.y=Math.PI/2+angleJitter}
+
+      mesh.castShadow=true;
+      mesh.userData={movie};
+      scene.add(mesh);
+      posterMeshes.push(mesh);
+    });
+  });
+
+  raycaster=new THREE.Raycaster();
+  mouse=new THREE.Vector2();
+  buildWallNav();
+  setupControls();
+  animateBunker();
+}
+
+function buildWallNav(){
+  const nav=document.getElementById('wall-nav');
+  WALLS.forEach((w,i)=>{
+    const btn=document.createElement('div');
+    btn.className='wall-btn'+(i===0?' active':'');
+    btn.textContent=w.label;
+    btn.addEventListener('click',()=>{
+      cameraTargetAngle=w.angle;
+      document.querySelectorAll('.wall-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+    });
+    nav.appendChild(btn);
+  });
+}
+
+function setupControls(){
+  const canvas=renderer.domElement;
+  canvas.addEventListener('pointerdown',e=>{isDragging=true;dragStartX=e.clientX;lastDragX=e.clientX;dragVel=0});
+  window.addEventListener('pointermove',e=>{
+    mouse.x=(e.clientX/window.innerWidth)*2-1;
+    mouse.y=-(e.clientY/window.innerHeight)*2+1;
+    if(isDragging){
+      const dx=e.clientX-lastDragX;
+      dragVel=dx;
+      cameraTargetAngle-=dx*0.005;
+      lastDragX=e.clientX;
+    }
+  });
+  window.addEventListener('pointerup',e=>{
+    if(isDragging&&Math.abs(e.clientX-dragStartX)<8){
+      raycaster.setFromCamera(mouse,camera);
+      const hits=raycaster.intersectObjects(posterMeshes);
+      if(hits.length>0)showMovieDetail(hits[0].object.userData.movie);
+    }
+    isDragging=false;
+  });
+  document.getElementById('md-close')&&document.getElementById('md-close').addEventListener('click',closeDetail);
+  window.addEventListener('resize',()=>{
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+  });
+}
+
+function showMovieDetail(movie){
+  const panel=document.getElementById('movie-detail');
+  const inner=document.getElementById('md-inner');
+  while(inner.firstChild)inner.removeChild(inner.firstChild);
+
+  const label=document.createElement('div');label.className='md-label';
+  label.textContent=movie.year+' \u2014 '+movie.director;inner.appendChild(label);
+
+  const h2=document.createElement('h2');h2.textContent=movie.title;inner.appendChild(h2);
+
+  const why=document.createElement('div');why.className='md-why';why.textContent=movie.why;inner.appendChild(why);
+
+  const rat=document.createElement('div');rat.className='md-rating';
+  rat.textContent='\u2605'.repeat(Math.round(movie.rating))+'\u2606'.repeat(5-Math.round(movie.rating))+' '+movie.rating+'/5';
+  inner.appendChild(rat);
+
+  const pills=document.createElement('div');pills.className='md-pills';
+  [...movie.streaming.svod,...movie.streaming.avod,'Dopebox'].forEach(p=>{
+    const a=document.createElement('a');
+    a.className='md-pill '+pillClass(p);
+    a.href=getStreamUrl(p,movie.title);a.target='_blank';a.rel='noopener';
+    a.textContent=p;pills.appendChild(a);
+  });
+  inner.appendChild(pills);
+
+  const closeBtn=document.createElement('button');
+  closeBtn.id='md-close';closeBtn.textContent='BACK TO BUNKER';
+  closeBtn.addEventListener('click',closeDetail);
+  inner.appendChild(closeBtn);
+
+  panel.style.display='flex';
+  gsap.fromTo(panel,{opacity:0},{opacity:1,duration:0.3});
+}
+
+function closeDetail(){
+  const panel=document.getElementById('movie-detail');
+  gsap.to(panel,{opacity:0,duration:0.2,onComplete:()=>{panel.style.display='none'}});
+}
+
+function animateBunker(){
+  requestAnimationFrame(animateBunker);
+
+  // Camera rotation momentum
+  if(!isDragging){dragVel*=0.92;cameraTargetAngle-=dragVel*0.001}
+
+  // Smooth camera rotation
+  let diff=cameraTargetAngle-cameraAngle;
+  // Normalize to shortest path
+  while(diff>Math.PI)diff-=Math.PI*2;
+  while(diff<-Math.PI)diff+=Math.PI*2;
+  cameraAngle+=diff*0.06;
+
+  camera.rotation.y=-cameraAngle;
+
+  // Swinging bulb
+  const gravity=0.003;
+  const damping=0.998;
+  bulbVel-=Math.sin(bulbSwing)*gravity;
+  bulbVel*=damping;
+  bulbSwing+=bulbVel;
+  bulbLight.position.x=Math.sin(bulbSwing)*1.5;
+  bulbLight.position.z=Math.cos(bulbSwing*0.7)*0.8;
+
+  // Dust animation
+  const dust=scene.children.find(c=>c instanceof THREE.Points);
+  if(dust){
+    const pos=dust.geometry.attributes.position.array;
+    for(let i=0;i<pos.length;i+=3){
+      pos[i+1]+=0.001;
+      if(pos[i+1]>4)pos[i+1]=-2;
+    }
+    dust.geometry.attributes.position.needsUpdate=true;
+  }
+
+  renderer.render(scene,camera);
+}
+
+// ── Table Slam Shuffle ──
+const slamBtn=document.getElementById('slam-btn');
+const slamOverlay=document.getElementById('slam-overlay');
+const slamClose=document.getElementById('slam-close');
+const slamCanvas=document.getElementById('slam-canvas');
+const slamResult=document.getElementById('slam-result');
+const slamAgain=document.getElementById('slam-again');
+let slamActive=false,slamCards=[],slamSettled=false;
+
+slamBtn.addEventListener('click',()=>{
+  slamOverlay.style.display='flex';slamActive=true;slamSettled=false;
+  slamResult.style.opacity='0';slamAgain.style.display='none';
+  initSlamCards();drawSlam();
+});
+slamClose.addEventListener('click',()=>{slamOverlay.style.display='none';slamActive=false});
+slamAgain.addEventListener('click',()=>{
+  slamSettled=false;slamResult.style.opacity='0';slamAgain.style.display='none';
+  // Re-stack
+  slamCards.forEach((c,i)=>{
+    c.x=200+(Math.random()-0.5)*20;
+    c.y=200+(Math.random()-0.5)*10;
+    c.vx=0;c.vy=0;c.rot=0;c.vr=0;c.faceUp=false;
+  });
+});
+
+slamCanvas.addEventListener('pointerdown',()=>{
+  if(slamSettled)return;
+  // SLAM — scatter all cards
+  slamCards.forEach(c=>{
+    c.vx=(Math.random()-0.5)*20;
+    c.vy=(Math.random()-0.5)*15-5;
+    c.vr=(Math.random()-0.5)*0.5;
+  });
+});
+
+function initSlamCards(){
+  slamCards=MOVIES.map((m,i)=>({
+    movie:m,x:200+(Math.random()-0.5)*20,y:200+(Math.random()-0.5)*10,
+    vx:0,vy:0,rot:(Math.random()-0.5)*0.1,vr:0,w:50,h:70,faceUp:false
+  }));
+}
+
+function drawSlam(){
+  if(!slamActive)return;
+  const c=slamCanvas;
+  const dpr=Math.min(window.devicePixelRatio,2);
+  const rect=c.getBoundingClientRect();
+  c.width=rect.width*dpr;c.height=rect.height*dpr;
+  const ctx=c.getContext('2d');
+  ctx.scale(dpr,dpr);
+  const cw=rect.width,ch=rect.height;
+
+  ctx.clearRect(0,0,cw,ch);
+
+  // Table surface
+  ctx.fillStyle='#2a2520';
+  ctx.fillRect(cw*0.15,ch*0.2,cw*0.7,ch*0.6);
+  ctx.strokeStyle='#3a3025';ctx.lineWidth=2;
+  ctx.strokeRect(cw*0.15,ch*0.2,cw*0.7,ch*0.6);
+
+  let allSlow=true;
+  slamCards.forEach(card=>{
+    // Gravity
+    card.vy+=0.3;
+    // Friction
+    card.vx*=0.98;card.vy*=0.98;card.vr*=0.96;
+    card.x+=card.vx;card.y+=card.vy;card.rot+=card.vr;
+
+    // Bounce off bounds
+    if(card.x<card.w/2){card.x=card.w/2;card.vx*=-0.5}
+    if(card.x>cw-card.w/2){card.x=cw-card.w/2;card.vx*=-0.5}
+    if(card.y>ch-card.h/2){card.y=ch-card.h/2;card.vy*=-0.4;card.vx*=0.8}
+    if(card.y<card.h/2){card.y=card.h/2;card.vy*=-0.5}
+
+    if(Math.abs(card.vx)>0.8||Math.abs(card.vy)>1)allSlow=false;
+
+    // Draw card
+    ctx.save();
+    ctx.translate(card.x,card.y);
+    ctx.rotate(card.rot);
+    if(card.faceUp){
+      ctx.fillStyle='#1a1510';
+      ctx.fillRect(-card.w/2,-card.h/2,card.w,card.h);
+      ctx.fillStyle='#c9944a';
+      ctx.font='bold 7px "Source Code Pro"';
+      ctx.textAlign='center';
+      ctx.fillText(card.movie.title.substring(0,14),0,0);
+      ctx.fillText(card.movie.title.substring(14),0,10);
+    }else{
+      ctx.fillStyle='#1a1510';
+      ctx.fillRect(-card.w/2,-card.h/2,card.w,card.h);
+      ctx.strokeStyle='#3a3025';ctx.lineWidth=1;
+      ctx.strokeRect(-card.w/2+3,-card.h/2+3,card.w-6,card.h-6);
+      // X pattern on back
+      ctx.strokeStyle='#2a2218';ctx.lineWidth=0.5;
+      ctx.beginPath();ctx.moveTo(-card.w/2+5,-card.h/2+5);ctx.lineTo(card.w/2-5,card.h/2-5);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(card.w/2-5,-card.h/2+5);ctx.lineTo(-card.w/2+5,card.h/2-5);ctx.stroke();
+    }
+    ctx.restore();
+  });
+
+  if(allSlow&&!slamSettled&&slamCards.some(c=>Math.abs(c.vx)>0.01||Math.abs(c.vy)>0.3)){
+    // Still settling
+  }else if(allSlow&&!slamSettled){
+    slamSettled=true;
+    // Pick random card, flip it
+    const pick=slamCards[Math.floor(Math.random()*slamCards.length)];
+    pick.faceUp=true;
+    showSlamResult(pick.movie);
+    slamAgain.style.display='block';
+  }
+
+  requestAnimationFrame(drawSlam);
+}
+
+function showSlamResult(movie){
+  const r=slamResult;
+  while(r.firstChild)r.removeChild(r.firstChild);
+  const h3=document.createElement('h3');h3.textContent=movie.title;r.appendChild(h3);
+  const sub=document.createElement('div');sub.className='sr-sub';
+  sub.textContent=movie.year+' \u2014 '+movie.director;r.appendChild(sub);
+  const why=document.createElement('div');why.className='sr-why';why.textContent=movie.why;r.appendChild(why);
+  const pills=document.createElement('div');pills.className='md-pills';
+  [...movie.streaming.svod,...movie.streaming.avod,'Dopebox'].forEach(p=>{
+    const a=document.createElement('a');a.className='md-pill '+pillClass(p);
+    a.href=getStreamUrl(p,movie.title);a.target='_blank';a.rel='noopener';
+    a.textContent=p;pills.appendChild(a);
+  });
+  r.appendChild(pills);
+  gsap.to(r,{opacity:1,duration:0.5,delay:0.3});
+}
+</script>
+</body>
+</html>
